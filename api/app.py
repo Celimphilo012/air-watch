@@ -30,10 +30,6 @@ app.register_blueprint(zones_bp)
 def health():
     return {"status": "ok", "app": "AirWatch Eswatini API"}
 
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
-
-
 @app.route("/api/train", methods=["POST"])
 def train():
     from flask import request, session, jsonify
@@ -235,3 +231,7 @@ def notify():
         return jsonify({"error": "Gmail authentication failed. Check your App Password."}), 401
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
