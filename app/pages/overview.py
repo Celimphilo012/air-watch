@@ -12,8 +12,19 @@ from app.auth import require_access
 BASE_DIR      = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed")
 
-AQI_COLORS  = {"Good":"#2e7d32","Moderate":"#f9a825","Unhealthy":"#e65100","Hazardous":"#b71c1c","Unknown":"#9e9e9e"}
-ZONE_COLORS = {"Matsapha":"#1565c0","Simunye":"#6a1b9a","Bhunya":"#00695c"}
+AQI_COLORS         = {"Good":"#2e7d32","Moderate":"#f9a825","Unhealthy":"#e65100","Hazardous":"#b71c1c","Unknown":"#9e9e9e"}
+ZONE_COLORS_PRESET = {"Matsapha":"#1565c0","Simunye":"#6a1b9a","Bhunya":"#00695c"}
+FALLBACK_COLORS    = ["#c62828","#2e7d32","#f57f17","#00838f","#4527a0","#558b2f"]
+
+def zone_color_map(zones):
+    colors, fb_idx = {}, 0
+    for z in zones:
+        if z in ZONE_COLORS_PRESET:
+            colors[z] = ZONE_COLORS_PRESET[z]
+        else:
+            colors[z] = FALLBACK_COLORS[fb_idx % len(FALLBACK_COLORS)]
+            fb_idx += 1
+    return colors
 
 @st.cache_data
 def load_data():
@@ -25,12 +36,15 @@ def load_data():
 def show():
     require_access("Overview")
     st.title("📊 Air Quality Overview")
-    st.caption("Industrial zones: Matsapha · Simunye · Bhunya")
 
     df = load_data()
     if df is None:
         st.warning("No data found. Please upload a dataset first via **Upload & Validate**.")
         return
+
+    all_zones  = sorted(df["location"].unique().tolist())
+    zone_colors = zone_color_map(all_zones)
+    st.caption(f"Industrial zones: {' · '.join(all_zones)}")
 
     c1,c2,c3,c4 = st.columns(4)
     c1.metric("Overall PM2.5 Mean",  f"{df['pm25'].mean():.1f} µg/m³",
@@ -56,7 +70,7 @@ def show():
         zm = df.groupby("location")["pm25"].mean().reset_index()
         zm.columns = ["Zone","PM2.5"]
         fig2 = px.bar(zm, x="Zone", y="PM2.5", color="Zone",
-                      color_discrete_map=ZONE_COLORS, text=zm["PM2.5"].round(1))
+                      color_discrete_map=zone_colors, text=zm["PM2.5"].round(1))
         fig2.add_hline(y=10, line_dash="dash", line_color="red",
                        annotation_text="WHO Limit (10 µg/m³)")
         fig2.update_layout(showlegend=False, margin=dict(t=10,b=10),

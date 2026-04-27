@@ -20,11 +20,18 @@ const AQI_COLORS = {
   Unhealthy: "#e65100",
   Hazardous: "#b71c1c",
 };
-const ZONE_COLORS = {
+const ZONE_COLORS_PRESET = {
   Matsapha: "#1565c0",
   Simunye: "#6a1b9a",
   Bhunya: "#00695c",
 };
+const FALLBACK_COLORS = ["#c62828","#2e7d32","#f57f17","#00838f","#4527a0","#558b2f"];
+
+function zoneColor(name, allZones) {
+  if (ZONE_COLORS_PRESET[name]) return ZONE_COLORS_PRESET[name];
+  const idx = allZones.filter((z) => !ZONE_COLORS_PRESET[z]).indexOf(name);
+  return FALLBACK_COLORS[idx % FALLBACK_COLORS.length];
+}
 const MONTHS = [
   "Jan",
   "Feb",
@@ -120,7 +127,7 @@ export default function OverviewPage() {
           Air Quality Overview
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Industrial zones: Matsapha · Simunye · Bhunya
+          Industrial zones: {zones.map((z) => z.location).join(" · ")}
         </p>
       </div>
 
@@ -208,7 +215,7 @@ export default function OverviewPage() {
                 {zones.map((z) => (
                   <Cell
                     key={z.location}
-                    fill={ZONE_COLORS[z.location] || "#888"}
+                    fill={zoneColor(z.location, zones.map((x) => x.location))}
                   />
                 ))}
               </Bar>
