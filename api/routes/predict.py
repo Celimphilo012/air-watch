@@ -63,11 +63,14 @@ def predict():
             "pm25_lag7":   history[-7],
             "pm25_roll7":  float(np.mean(history[-7:])),
             "pm25_roll30": float(np.mean(history[-30:])),
-            "loc_Bhunya":   int(zone == "Bhunya"),
-            "loc_Matsapha": int(zone == "Matsapha"),
-            "loc_Simunye":  int(zone == "Simunye"),
             "is_dry_season": int(td.month in [5,6,7,8,9]),
         }
+        for col in feature_cols:
+            if col.startswith("loc_"):
+                row[col] = 0
+        zone_col = f"loc_{zone}"
+        if zone_col in feature_cols:
+            row[zone_col] = 1
         X  = pd.DataFrame([row])[feature_cols]
         Xi = pd.DataFrame(imputer.transform(X), columns=feature_cols)
         Xs = pd.DataFrame(scaler.transform(Xi), columns=feature_cols)

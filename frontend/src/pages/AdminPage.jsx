@@ -133,13 +133,13 @@ export default function AdminPage() {
               label: "Username",
               key: "username",
               type: "text",
-              placeholder: "jdoe",
+              placeholder: "pmthethwa",
             },
             {
               label: "Full Name",
               key: "name",
               type: "text",
-              placeholder: "John Doe",
+              placeholder: "Phiwa Mthethwa",
             },
             {
               label: "Password",
