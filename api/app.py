@@ -3,11 +3,21 @@ app.py — AirWatch Eswatini Flask API
 Run: python api/app.py  (from the project root)
 """
 import sys, os
-# Ensure the project root is on sys.path so `from api.routes.*` resolves
-# regardless of which directory the script is launched from.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from flask import Flask
+import joblib
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.svm import SVR
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+from flask import Flask, request, session, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -32,15 +42,6 @@ def health():
 
 @app.route("/api/train", methods=["POST"])
 def train():
-    from flask import request, session, jsonify
-    import os, joblib
-    import pandas as pd
-    import numpy as np
-    from sklearn.ensemble import RandomForestRegressor
-    from sklearn.svm import SVR
-    from sklearn.impute import SimpleImputer
-    from sklearn.preprocessing import StandardScaler
-    from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
     if "username" not in session:
         return jsonify({"error": "Not authenticated"}), 401
@@ -177,20 +178,14 @@ def train():
         })
 
     except Exception as e:
-        import traceback
-        return jsonify({"error": str(e), "detail": traceback.format_exc()}), 500
+        import traceback; tb = traceback.format_exc()
+        return jsonify({"error": str(e), "detail": tb}), 500
 
 
-# email notification route
 @app.route("/api/notify", methods=["POST"])
 def notify():
-    from flask import request, session, jsonify
     if "username" not in session:
         return jsonify({"error": "Not authenticated"}), 401
-
-    import smtplib
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
 
     data       = request.get_json()
     sender     = data.get("senderEmail","")
@@ -234,4 +229,4 @@ def notify():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, use_reloader=False)
