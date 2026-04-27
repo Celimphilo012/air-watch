@@ -1,7 +1,12 @@
 """
 app.py — AirWatch Eswatini Flask API
-Run: python api/app.py
+Run: python api/app.py  (from the project root)
 """
+import sys, os
+# Ensure the project root is on sys.path so `from api.routes.*` resolves
+# regardless of which directory the script is launched from.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from flask import Flask
 from flask_cors import CORS
 
