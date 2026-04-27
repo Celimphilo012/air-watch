@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+.env.*
+
+# Flask
+flask_out.txt
+flask_err.txt
+instance/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Raw data (station_hour.csv=209MB, city_hour.csv=62MB exceed GitHub limit)
+data/raw/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
