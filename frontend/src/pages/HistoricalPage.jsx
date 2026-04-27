@@ -13,23 +13,40 @@ import {
 } from "recharts";
 import api from "../api";
 
-const ZONE_COLORS = {
+const ZONE_COLORS_PRESET = {
   Matsapha: "#1565c0",
   Simunye: "#6a1b9a",
   Bhunya: "#00695c",
 };
+const FALLBACK_COLORS = ["#c62828","#2e7d32","#f57f17","#00838f","#4527a0","#558b2f"];
 const SEASON_COLORS = {
   "Dry (May–Sep)": "#e65100",
   "Wet (Oct–Apr)": "#1565c0",
 };
-const ZONES = ["Matsapha", "Simunye", "Bhunya"];
+
+function zoneColor(name, allZones) {
+  if (ZONE_COLORS_PRESET[name]) return ZONE_COLORS_PRESET[name];
+  const idx = allZones.filter(z => !ZONE_COLORS_PRESET[z]).indexOf(name);
+  return FALLBACK_COLORS[idx % FALLBACK_COLORS.length];
+}
 
 export default function HistoricalPage() {
   const [trends, setTrends] = useState([]);
   const [zoneSummary, setZoneSummary] = useState([]);
-  const [zones, setZones] = useState(ZONES);
+  const [allZones, setAllZones] = useState([]);
+  const [zones, setZones] = useState([]);
   const [pollutant, setPollutant] = useState("pm25");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api.get("/api/zones")
+      .then((r) => {
+        const names = r.data.map((z) => z.name);
+        setAllZones(names);
+        setZones(names);
+      })
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     api
@@ -79,24 +96,25 @@ export default function HistoricalPage() {
       </div>
 
       <div className="flex flex-wrap gap-3 items-center">
-        <div className="flex gap-2">
-          {ZONES.map((z) => (
-            <button
-              key={z}
-              onClick={() => toggleZone(z)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors
-                ${
-                  zones.includes(z)
-                    ? "text-white border-transparent"
-                    : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400"
-                }`}
-              style={
-                zones.includes(z) ? { backgroundColor: ZONE_COLORS[z] } : {}
-              }
-            >
-              {z}
-            </button>
-          ))}
+        <div className="flex gap-2 flex-wrap">
+          {allZones.map((z) => {
+            const color = zoneColor(z, allZones);
+            return (
+              <button
+                key={z}
+                onClick={() => toggleZone(z)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors
+                  ${
+                    zones.includes(z)
+                      ? "text-white border-transparent"
+                      : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400"
+                  }`}
+                style={zones.includes(z) ? { backgroundColor: color } : {}}
+              >
+                {z}
+              </button>
+            );
+          })}
         </div>
         <select
           value={pollutant}
@@ -140,7 +158,7 @@ export default function HistoricalPage() {
                   key={z}
                   type="monotone"
                   dataKey={z}
-                  stroke={ZONE_COLORS[z]}
+                  stroke={zoneColor(z, allZones)}
                   dot={false}
                   strokeWidth={2}
                   connectNulls
@@ -203,7 +221,7 @@ export default function HistoricalPage() {
             <div className="space-y-4 mt-2">
               {zoneSummary.map((z) => {
                 const pct = Math.min((z.mean_pm25 / 30) * 100, 100);
-                const color = ZONE_COLORS[z.location] || "#888";
+                const color = zoneColor(z.location, allZones);
                 return (
                   <div key={z.location}>
                     <div className="flex justify-between text-sm mb-1">

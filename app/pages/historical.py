@@ -11,7 +11,19 @@ from app.auth import require_access
 
 BASE_DIR      = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed")
-ZONE_COLORS   = {"Matsapha":"#1565c0","Simunye":"#6a1b9a","Bhunya":"#00695c"}
+ZONE_COLORS_PRESET = {"Matsapha":"#1565c0","Simunye":"#6a1b9a","Bhunya":"#00695c"}
+FALLBACK_COLORS    = ["#c62828","#2e7d32","#f57f17","#00838f","#4527a0","#558b2f"]
+
+def zone_color_map(zones):
+    colors = {}
+    fb_idx = 0
+    for z in zones:
+        if z in ZONE_COLORS_PRESET:
+            colors[z] = ZONE_COLORS_PRESET[z]
+        else:
+            colors[z] = FALLBACK_COLORS[fb_idx % len(FALLBACK_COLORS)]
+            fb_idx += 1
+    return colors
 
 @st.cache_data
 def load_data():
@@ -28,15 +40,18 @@ def show():
         st.warning("No data found. Please upload a dataset first via **Upload & Validate**.")
         return
 
+    available_zones = sorted(df["location"].unique().tolist())
+    zone_colors     = zone_color_map(available_zones)
+
     c1,c2 = st.columns(2)
-    with c1: zones = st.multiselect("Zones", ["Matsapha","Simunye","Bhunya"], default=["Matsapha","Simunye","Bhunya"])
+    with c1: zones = st.multiselect("Zones", available_zones, default=available_zones)
     with c2: poll  = st.selectbox("Pollutant", ["pm25","pm10","no2","co"])
 
     fdf = df[df["location"].isin(zones)].copy() if zones else df.copy()
 
     st.subheader(f"{poll.upper()} Over Time")
     mo = fdf.groupby(["date","location"])[poll].mean().reset_index()
-    fig = px.line(mo, x="date", y=poll, color="location", color_discrete_map=ZONE_COLORS,
+    fig = px.line(mo, x="date", y=poll, color="location", color_discrete_map=zone_colors,
                   labels={"date":"Date", poll:f"{poll.upper()} (µg/m³)", "location":"Zone"})
     if poll == "pm25":
         fig.add_hline(y=10, line_dash="dash", line_color="red", annotation_text="WHO Limit")
@@ -57,7 +72,7 @@ def show():
     with cb:
         st.subheader("PM2.5 Distribution by Zone")
         fig3 = px.box(fdf, x="location", y="pm25", color="location",
-                      color_discrete_map=ZONE_COLORS,
+                      color_discrete_map=zone_colors,
                       labels={"pm25":"PM2.5 (µg/m³)","location":"Zone"})
         fig3.add_hline(y=10, line_dash="dash", line_color="red", annotation_text="WHO Limit")
         fig3.update_layout(showlegend=False, margin=dict(t=10,b=10))
