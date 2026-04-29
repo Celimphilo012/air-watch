@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import api from "../api";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -66,18 +66,11 @@ function ActualVsPredicted({ data, color, label }) {
             tick={{ fontSize: 10 }}
           />
           <Tooltip content={<ScatterTooltipContent />} />
+          <Scatter data={data} fill={color} opacity={0.45} name={label} isAnimationActive={false} />
           <Scatter
-            data={data} fill={color} opacity={0.45} name={label}
-            isAnimationActive={true} animationDuration={800} animationEasing="ease-out"
-          />
-          <Scatter
-            data={refLine}
-            fill="none"
+            data={refLine} fill="none"
             line={{ stroke: "#ef4444", strokeDasharray: "5 5", strokeWidth: 1.5 }}
-            shape={<NullDot />}
-            legendType="none"
-            name="Perfect"
-            isAnimationActive={false}
+            shape={<NullDot />} legendType="none" name="Perfect" isAnimationActive={false}
           />
         </ScatterChart>
       </ResponsiveContainer>
@@ -175,16 +168,14 @@ export default function ModelReportPage() {
   const svr  = results.find(r => r.model === "SVR") || {};
   const best = (rf.R2 ?? 0) >= (svr.R2 ?? 0) ? "Random Forest" : "SVR";
 
-  const rfScatter  = preds.map(p => ({ actual: p.y_true, predicted: p.rf_pred }));
-  const svrScatter = preds.map(p => ({ actual: p.y_true, predicted: p.svr_pred }));
-
-  const compareData = [
+  const rfScatter  = useMemo(() => preds.map(p => ({ actual: p.y_true, predicted: p.rf_pred })),  [preds]);
+  const svrScatter = useMemo(() => preds.map(p => ({ actual: p.y_true, predicted: p.svr_pred })), [preds]);
+  const compareData = useMemo(() => [
     { metric: "MAE",  "Random Forest": rf.MAE,  SVR: svr.MAE },
     { metric: "RMSE", "Random Forest": rf.RMSE, SVR: svr.RMSE },
     { metric: "R²",   "Random Forest": rf.R2,   SVR: svr.R2  },
-  ];
-
-  const featData = [...featureImp].reverse(); // reverse so highest is at top in horizontal bar
+  ], [rf, svr]);
+  const featData = useMemo(() => [...featureImp].reverse(), [featureImp]);
 
   return (
     <div className="space-y-6">

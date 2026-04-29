@@ -377,7 +377,17 @@ def model_results():
     fip = os.path.join(MODELS_DIR, "feature_importances.csv")
     if not os.path.exists(rp):
         return jsonify({"error": "No model results found"}), 404
-    res  = pd.read_csv(rp).to_dict(orient="records")
-    pred = pd.read_csv(pp).to_dict(orient="records") if os.path.exists(pp) else []
-    fi   = pd.read_csv(fip).head(12).to_dict(orient="records") if os.path.exists(fip) else []
+    res = pd.read_csv(rp).to_dict(orient="records")
+    fi  = pd.read_csv(fip).head(12).to_dict(orient="records") if os.path.exists(fip) else []
+
+    # Sample predictions to keep the JSON payload small and the scatter charts fast.
+    # 400 points is more than enough for visual accuracy; the full set can be thousands.
+    if os.path.exists(pp):
+        pred_df = pd.read_csv(pp)
+        if len(pred_df) > 400:
+            pred_df = pred_df.sample(400, random_state=42)
+        pred = pred_df.to_dict(orient="records")
+    else:
+        pred = []
+
     return jsonify({"results": res, "predictions": pred, "feature_importances": fi})
