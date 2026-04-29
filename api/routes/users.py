@@ -63,6 +63,41 @@ def add_user():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@users_bp.route("/api/users/<int:user_id>", methods=["PUT"])
+def update_user(user_id):
+    err = require_admin()
+    if err: return err
+    data = request.get_json()
+    name     = data.get("name","").strip()
+    username = data.get("username","").strip()
+    role     = data.get("role","")
+    password = data.get("password","")
+
+    if not name or not username or not role:
+        return jsonify({"error": "Name, username, and role are required"}), 400
+    valid_roles = ["environmental_officer","researcher","admin"]
+    if role not in valid_roles:
+        return jsonify({"error": "Invalid role"}), 400
+
+    try:
+        conn = get_connection()
+        with conn.cursor() as cur:
+            if password:
+                cur.execute(
+                    "UPDATE users SET name=%s, username=%s, role=%s, password_hash=%s WHERE id=%s",
+                    (name, username, role, hash_pw(password), user_id)
+                )
+            else:
+                cur.execute(
+                    "UPDATE users SET name=%s, username=%s, role=%s WHERE id=%s",
+                    (name, username, role, user_id)
+                )
+        conn.commit()
+        conn.close()
+        return jsonify({"message": "User updated."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @users_bp.route("/api/users/<int:user_id>", methods=["DELETE"])
 def delete_user(user_id):
     err = require_admin()
