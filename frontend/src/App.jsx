@@ -13,6 +13,8 @@ import NotificationsPage from "./pages/NotificationsPage";
 import ModelReportPage from "./pages/ModelReportPage";
 import AdminPage from "./pages/AdminPage";
 import ZonesPage from "./pages/ZonesPage";
+import AuditPage from "./pages/AuditPage";
+import ConfigPage from "./pages/ConfigPage";
 
 function ProtectedRoute({ children, roles }) {
   const { user, loading } = useAuth();
@@ -95,6 +97,22 @@ function AppRoutes() {
           element={
             <ProtectedRoute roles={["admin"]}>
               <ZonesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="audit"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <AuditPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="config"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <ConfigPage />
             </ProtectedRoute>
           }
         />

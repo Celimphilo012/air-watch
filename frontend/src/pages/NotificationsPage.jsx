@@ -20,11 +20,26 @@ export default function NotificationsPage() {
       setForecasts(JSON.parse(f));
       setZone(z || "");
     }
-    if (z)
-      setForm((prev) => ({
-        ...prev,
-        subject: `Air Quality Alert — ${z} — ${new Date().toISOString().slice(0, 10)}`,
-      }));
+    const subject = z
+      ? `Air Quality Alert — ${z} — ${new Date().toISOString().slice(0, 10)}`
+      : "";
+
+    // Auto-load saved email config from system settings
+    import("../api").then(({ default: api }) => {
+      api.get("/api/config/email")
+        .then(r => {
+          setForm(prev => ({
+            ...prev,
+            senderEmail: r.data.email_sender     || prev.senderEmail,
+            appPassword: r.data.email_password   || prev.appPassword,
+            recipients:  r.data.email_recipients || prev.recipients,
+            subject:     subject || prev.subject,
+          }));
+        })
+        .catch(() => {
+          if (subject) setForm(prev => ({ ...prev, subject }));
+        });
+    });
   }, []);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));

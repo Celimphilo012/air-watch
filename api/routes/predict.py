@@ -3,6 +3,7 @@ routes/predict.py — Prediction endpoint
 """
 from flask import Blueprint, request, jsonify, session
 from api.db import get_connection
+from api.routes.audit import log_action
 import numpy as np
 import pandas as pd
 import joblib, os
@@ -99,4 +100,5 @@ def predict():
     except Exception:
         pass  # don't fail if db save fails
 
+    log_action("PREDICTION", f"zone={zone} days={days} model={model_name}")
     return jsonify({"zone": zone, "model": model_name, "forecasts": forecasts})

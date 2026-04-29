@@ -29,12 +29,16 @@ from api.routes.data    import data_bp
 from api.routes.predict import predict_bp
 from api.routes.users   import users_bp
 from api.routes.zones   import zones_bp
+from api.routes.audit   import audit_bp, log_action
+from api.routes.config  import config_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(data_bp)
 app.register_blueprint(predict_bp)
 app.register_blueprint(users_bp)
 app.register_blueprint(zones_bp)
+app.register_blueprint(audit_bp)
+app.register_blueprint(config_bp)
 
 @app.route("/api/health")
 def health():
@@ -171,6 +175,7 @@ def train():
         y_train.to_csv(os.path.join(PROCESSED_DIR, "y_train.csv"), index=False)
         y_test.to_csv( os.path.join(PROCESSED_DIR, "y_test.csv"),  index=False)
 
+        log_action("MODEL_TRAIN", f"best={best_name} rf_r2={rf_res['R2']} svr_r2={svr_res['R2']}")
         return jsonify({
             "best_model": best_name,
             "rf_mae": rf_res["MAE"],   "rf_r2": rf_res["R2"],
@@ -221,6 +226,7 @@ def notify():
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
             s.login(sender, password)
             s.sendmail(sender, recipients, msg.as_string())
+        log_action("NOTIFY_SENT", f"zone={zone} recipients={len(recipients)}")
         return jsonify({"message": f"Sent to {len(recipients)} recipient(s)."})
     except smtplib.SMTPAuthenticationError:
         return jsonify({"error": "Gmail authentication failed. Check your App Password."}), 401

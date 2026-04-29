@@ -38,6 +38,7 @@ export default function ReportPage() {
   };
 
   const handlePrint = () => {
+    api.post("/api/audit/log", { action: "REPORT_EXPORT", details: `prepared_by=${user?.name}` }).catch(() => {});
     const date = new Date().toLocaleString("en-ZA", {
       year: "numeric", month: "long", day: "numeric",
       hour: "2-digit", minute: "2-digit",

@@ -3,6 +3,7 @@ routes/data.py — Air quality data endpoints
 """
 from flask import Blueprint, request, jsonify, session
 from api.db import get_connection
+from api.routes.audit import log_action
 import pandas as pd
 import os
 
@@ -268,7 +269,101 @@ def upload():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+    log_action("DATA_UPLOAD", f"rows={len(df)} file={file.filename if hasattr(file,'filename') else '?'}")
     return jsonify({"message": f"{len(df):,} rows imported successfully."})
+
+
+def _refresh_csv():
+    """Re-export all DB readings to the processed CSV used by the ML pipeline."""
+    try:
+        conn = get_connection()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT date,month,year,day_of_week,location,pm25,pm10,no2,co,aqi_category "
+                "FROM air_quality_data ORDER BY date, location"
+            )
+            rows = cur.fetchall()
+        conn.close()
+        if rows:
+            df = pd.DataFrame(rows)
+            out = os.path.join(BASE_DIR, "data", "processed", "airquality_eswatini.csv")
+            os.makedirs(os.path.dirname(out), exist_ok=True)
+            df.to_csv(out, index=False)
+    except Exception:
+        pass
+
+
+@data_bp.route("/api/data/reading", methods=["POST"])
+def add_reading():
+    err = require_auth()
+    if err: return err
+    if session.get("role") not in ["environmental_officer", "admin"]:
+        return jsonify({"error": "Access denied"}), 403
+
+    data     = request.get_json() or {}
+    date_str = data.get("date", "").strip()
+    location = data.get("location", "").strip()
+    pm25_raw = data.get("pm25")
+
+    if not date_str or not location or pm25_raw is None:
+        return jsonify({"error": "date, location, and pm25 are required"}), 400
+
+    from datetime import datetime as _dt
+    try:
+        d           = _dt.strptime(date_str, "%Y-%m-%d").date()
+        month       = d.month
+        year        = d.year
+        day_of_week = d.weekday()
+    except ValueError:
+        return jsonify({"error": "Invalid date — use YYYY-MM-DD"}), 400
+
+    conn = get_connection()
+    with conn.cursor() as cur:
+        cur.execute("SELECT name FROM zones")
+        valid_zones = [r["name"] for r in cur.fetchall()]
+    conn.close()
+    if location not in valid_zones:
+        return jsonify({"error": f"Invalid zone: {location}"}), 400
+
+    try:
+        pm25 = float(pm25_raw)
+        pm25 = max(0.0, min(500.0, pm25))
+    except (TypeError, ValueError):
+        return jsonify({"error": "pm25 must be a number"}), 400
+
+    def _f(v):
+        try:    return float(v)
+        except: return None
+
+    def who_cat(v):
+        if v <= 10:  return "Good"
+        elif v <= 25: return "Moderate"
+        elif v <= 50: return "Unhealthy"
+        return "Hazardous"
+
+    try:
+        conn = get_connection()
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO air_quality_data
+                  (date, month, year, day_of_week, location, pm25, pm10, no2, co, aqi_category)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                  pm25=VALUES(pm25), pm10=VALUES(pm10),
+                  no2=VALUES(no2),   co=VALUES(co),
+                  aqi_category=VALUES(aqi_category)
+            """, (
+                d, month, year, day_of_week, location,
+                pm25, _f(data.get("pm10")), _f(data.get("no2")), _f(data.get("co")),
+                who_cat(pm25),
+            ))
+        conn.commit()
+        conn.close()
+        _refresh_csv()
+        log_action("MANUAL_ENTRY", f"date={date_str} zone={location} pm25={pm25}")
+        return jsonify({"message": f"Reading saved for {location} on {date_str}."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @data_bp.route("/api/model/results", methods=["GET"])

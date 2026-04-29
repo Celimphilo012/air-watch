@@ -3,6 +3,7 @@ routes/users.py — User management (admin only)
 """
 from flask import Blueprint, request, jsonify, session
 from api.db import get_connection
+from api.routes.audit import log_action
 import hashlib
 
 users_bp = Blueprint("users", __name__)
@@ -59,6 +60,7 @@ def add_user():
             )
         conn.commit()
         conn.close()
+        log_action("USER_ADD", f"username={username} role={role}")
         return jsonify({"message": f"User '{username}' created."})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -94,6 +96,7 @@ def update_user(user_id):
                 )
         conn.commit()
         conn.close()
+        log_action("USER_EDIT", f"user_id={user_id} username={username} role={role}")
         return jsonify({"message": "User updated."})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -108,6 +111,7 @@ def delete_user(user_id):
             cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
         conn.commit()
         conn.close()
+        log_action("USER_DELETE", f"user_id={user_id}")
         return jsonify({"message": "User deleted."})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

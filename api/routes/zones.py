@@ -3,6 +3,7 @@ routes/zones.py — Industrial zones CRUD (admin-only for write operations)
 """
 from flask import Blueprint, request, jsonify, session
 from api.db import get_connection
+from api.routes.audit import log_action
 
 zones_bp = Blueprint("zones", __name__)
 
@@ -56,6 +57,7 @@ def add_zone():
             cur.execute("INSERT INTO zones (name) VALUES (%s)", (name,))
         conn.commit()
         conn.close()
+        log_action("ZONE_ADD", f"name={name}")
         return jsonify({"message": f"Zone '{name}' added successfully."})
     except Exception as e:
         msg = str(e)
@@ -86,6 +88,7 @@ def delete_zone(zone_id):
             cur.execute("DELETE FROM zones WHERE id = %s", (zone_id,))
         conn.commit()
         conn.close()
+        log_action("ZONE_DELETE", f"name={name}")
         return jsonify({"message": f"Zone '{name}' removed."})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

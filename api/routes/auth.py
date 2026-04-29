@@ -3,6 +3,7 @@ routes/auth.py — Login / logout / session
 """
 from flask import Blueprint, request, jsonify, session
 from api.db import get_connection
+from api.routes.audit import log_action
 import hashlib
 
 auth_bp = Blueprint("auth", __name__)
@@ -39,6 +40,7 @@ def login():
     session["name"]     = user["name"]
     session["role"]     = user["role"]
 
+    log_action("LOGIN", f"role={user['role']}")
     return jsonify({
         "message":  "Login successful",
         "username": user["username"],
@@ -48,6 +50,7 @@ def login():
 
 @auth_bp.route("/api/auth/logout", methods=["POST"])
 def logout():
+    log_action("LOGOUT", "")
     session.clear()
     return jsonify({"message": "Logged out"})
 

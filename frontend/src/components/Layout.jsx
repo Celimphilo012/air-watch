@@ -1,6 +1,8 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { useEffect, useState } from "react";
+import api from "../api";
 import {
   LayoutDashboard,
   TrendingUp,
@@ -16,6 +18,8 @@ import {
   Sun,
   Moon,
   Leaf,
+  Shield,
+  SlidersHorizontal,
 } from "lucide-react";
 
 const ROLE_LABELS = {
@@ -34,45 +38,47 @@ const ROLE_LABELS = {
   },
 };
 
+// pageKey is the visibility config key; adminOnly items always show for admin
 const ALL_NAV = [
-  { to: "/", icon: LayoutDashboard, label: "Overview", roles: null },
-  {
-    to: "/historical",
-    icon: TrendingUp,
-    label: "Historical Trends",
-    roles: null,
-  },
-  {
-    to: "/upload",
-    icon: Upload,
-    label: "Upload & Validate",
-    roles: ["environmental_officer", "admin"],
-  },
-  {
-    to: "/train",
-    icon: Settings,
-    label: "Configure & Train",
-    roles: ["environmental_officer", "admin"],
-  },
-  { to: "/predict", icon: Zap, label: "Predict Air Quality", roles: null },
-  { to: "/report", icon: FileText, label: "Generate Report", roles: null },
-  {
-    to: "/notifications",
-    icon: Bell,
-    label: "Notifications",
-    roles: ["environmental_officer", "admin"],
-  },
-  { to: "/model-report", icon: Bot, label: "Model Report", roles: null },
-  { to: "/admin", icon: Users, label: "Manage Users", roles: ["admin"] },
-  { to: "/zones", icon: MapPin, label: "Manage Zones", roles: ["admin"] },
+  { to: "/",             icon: LayoutDashboard,   label: "Overview",            pageKey: "overview" },
+  { to: "/historical",   icon: TrendingUp,         label: "Historical Trends",   pageKey: "historical" },
+  { to: "/upload",       icon: Upload,             label: "Upload & Validate",   pageKey: "upload" },
+  { to: "/train",        icon: Settings,           label: "Configure & Train",   pageKey: "train" },
+  { to: "/predict",      icon: Zap,                label: "Predict Air Quality", pageKey: "predict" },
+  { to: "/report",       icon: FileText,           label: "Generate Report",     pageKey: "report" },
+  { to: "/notifications",icon: Bell,               label: "Notifications",       pageKey: "notifications" },
+  { to: "/model-report", icon: Bot,                label: "Model Report",        pageKey: "model-report" },
+  { to: "/admin",        icon: Users,              label: "Manage Users",        adminOnly: true },
+  { to: "/zones",        icon: MapPin,             label: "Manage Zones",        adminOnly: true },
+  { to: "/audit",        icon: Shield,             label: "Audit Log",           adminOnly: true },
+  { to: "/config",       icon: SlidersHorizontal,  label: "System Config",       adminOnly: true },
 ];
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const { dark, toggle } = useTheme();
   const navigate = useNavigate();
+  const [visibility, setVisibility] = useState(null);
 
-  const nav = ALL_NAV.filter((n) => !n.roles || n.roles.includes(user?.role));
+  useEffect(() => {
+    api.get("/api/config/visibility")
+      .then(r => setVisibility(r.data))
+      .catch(() => {});
+  }, []);
+
+  const nav = ALL_NAV.filter(n => {
+    if (user?.role === "admin") return true;
+    if (n.adminOnly) return false;
+    if (!visibility) {
+      // fallback while loading: use hardcoded defaults
+      const defaults = {
+        environmental_officer: ["overview","historical","upload","train","predict","report","notifications","model-report"],
+        researcher: ["overview","historical","predict","report","model-report"],
+      };
+      return (defaults[user?.role] || []).includes(n.pageKey);
+    }
+    return (visibility[user?.role] || []).includes(n.pageKey);
+  });
   const roleInfo = ROLE_LABELS[user?.role] || {
     label: user?.role,
     color: "bg-gray-100 text-gray-800",
