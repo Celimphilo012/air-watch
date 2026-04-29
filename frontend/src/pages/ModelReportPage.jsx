@@ -66,9 +66,10 @@ function ActualVsPredicted({ data, color, label }) {
             tick={{ fontSize: 10 }}
           />
           <Tooltip content={<ScatterTooltipContent />} />
-          {/* Data points */}
-          <Scatter data={data} fill={color} opacity={0.45} name={label} />
-          {/* Perfect prediction reference line rendered as a 2-point scatter with line */}
+          <Scatter
+            data={data} fill={color} opacity={0.45} name={label}
+            isAnimationActive={true} animationDuration={800} animationEasing="ease-out"
+          />
           <Scatter
             data={refLine}
             fill="none"
@@ -76,6 +77,7 @@ function ActualVsPredicted({ data, color, label }) {
             shape={<NullDot />}
             legendType="none"
             name="Perfect"
+            isAnimationActive={false}
           />
         </ScatterChart>
       </ResponsiveContainer>
@@ -116,7 +118,10 @@ function ResidualsChart({ data, color, label }) {
           <YAxis tick={{ fontSize: 10 }} />
           <Tooltip formatter={(v) => [v, "Count"]} labelFormatter={(l) => `Error ≈ ${l} µg/m³`} />
           <ReferenceLine x={0} stroke="#ef4444" strokeDasharray="4 4" />
-          <Bar dataKey="count" radius={[3, 3, 0, 0]}>
+          <Bar
+            dataKey="count" radius={[3, 3, 0, 0]}
+            isAnimationActive={true} animationDuration={800} animationEasing="ease-out"
+          >
             {histData.map((entry, i) => (
               <Cell key={i} fill={entry.bin < 0 ? "#f97316" : color} opacity={0.8} />
             ))}
@@ -192,8 +197,9 @@ export default function ModelReportPage() {
 
       {/* ── Metric cards ── */}
       <div className="grid grid-cols-2 gap-4">
-        {[{ name: "Random Forest", data: rf }, { name: "SVR", data: svr }].map(({ name, data }) => (
-          <div key={name} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+        {[{ name: "Random Forest", data: rf }, { name: "SVR", data: svr }].map(({ name, data }, idx) => (
+          <div key={name} className="chart-enter bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5"
+               style={{ animationDelay: `${idx * 80}ms` }}>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-3 h-3 rounded-full" style={{ background: COLORS[name] }} />
               <h2 className="font-semibold text-gray-800 dark:text-gray-200">{name}</h2>
@@ -213,7 +219,8 @@ export default function ModelReportPage() {
       </div>
 
       {/* ── Metric comparison bar chart ── */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+      <div className="chart-enter bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5"
+           style={{ animationDelay: "160ms" }}>
         <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">Side-by-Side Metric Comparison</h2>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={compareData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
@@ -222,15 +229,18 @@ export default function ModelReportPage() {
             <YAxis tick={{ fontSize: 11 }} />
             <Tooltip formatter={(v) => v?.toFixed(4)} />
             <Legend />
-            <Bar dataKey="Random Forest" fill={COLORS["Random Forest"]} radius={[4, 4, 0, 0]} />
-            <Bar dataKey="SVR" fill={COLORS["SVR"]} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="Random Forest" fill={COLORS["Random Forest"]} radius={[4, 4, 0, 0]}
+                 isAnimationActive={true} animationDuration={800} animationEasing="ease-out" />
+            <Bar dataKey="SVR" fill={COLORS["SVR"]} radius={[4, 4, 0, 0]}
+                 isAnimationActive={true} animationDuration={800} animationEasing="ease-out" animationBegin={100} />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       {/* ── Actual vs Predicted ── */}
       {preds.length > 0 && (
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+        <div className="chart-enter bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5"
+             style={{ animationDelay: "240ms" }}>
           <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-5">
             Actual vs Predicted PM2.5 — Test Set
           </h2>
@@ -243,7 +253,8 @@ export default function ModelReportPage() {
 
       {/* ── Residuals ── */}
       {preds.length > 0 && (
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+        <div className="chart-enter bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5"
+             style={{ animationDelay: "320ms" }}>
           <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-5">
             Prediction Error Distribution
           </h2>
@@ -256,7 +267,8 @@ export default function ModelReportPage() {
 
       {/* ── Feature Importance ── */}
       {featData.length > 0 && (
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+        <div className="chart-enter bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5"
+             style={{ animationDelay: "400ms" }}>
           <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-1">
             Feature Importance — Random Forest
           </h2>
@@ -267,7 +279,8 @@ export default function ModelReportPage() {
               <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={v => `${(v * 100).toFixed(1)}%`} />
               <YAxis type="category" dataKey="feature" tick={{ fontSize: 11 }} width={105} />
               <Tooltip formatter={v => [`${(v * 100).toFixed(2)}%`, "Importance"]} />
-              <Bar dataKey="importance" radius={[0, 4, 4, 0]}>
+              <Bar dataKey="importance" radius={[0, 4, 4, 0]}
+                   isAnimationActive={true} animationDuration={800} animationEasing="ease-out">
                 {featData.map((_, i) => (
                   <Cell
                     key={i}
@@ -281,7 +294,8 @@ export default function ModelReportPage() {
       )}
 
       {/* ── Interpretation ── */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+      <div className="chart-enter bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5"
+           style={{ animationDelay: "480ms" }}>
         <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Interpretation</h2>
         <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
           <li>• <strong>Best model: {best}</strong> — R² = {Math.max(rf.R2 ?? 0, svr.R2 ?? 0)}</li>

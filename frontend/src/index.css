@@ -8,3 +8,18 @@
   --color-warning: #f9a825;
   --color-danger: #c62828;
 }
+
+@keyframes chart-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chart-enter {
+  animation: chart-enter 0.55s ease-out both;
+}
