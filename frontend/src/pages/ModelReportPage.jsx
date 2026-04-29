@@ -150,6 +150,20 @@ export default function ModelReportPage() {
 
   useEffect(() => { fetchResults(); }, []);
 
+  // All derived data must be memoised before any early return (Rules of Hooks)
+  const rf   = useMemo(() => results?.find(r => r.model === "Random Forest") || {}, [results]);
+  const svr  = useMemo(() => results?.find(r => r.model === "SVR") || {},           [results]);
+  const best = useMemo(() => (rf.R2 ?? 0) >= (svr.R2 ?? 0) ? "Random Forest" : "SVR", [rf, svr]);
+
+  const rfScatter   = useMemo(() => preds.map(p => ({ actual: p.y_true, predicted: p.rf_pred })),  [preds]);
+  const svrScatter  = useMemo(() => preds.map(p => ({ actual: p.y_true, predicted: p.svr_pred })), [preds]);
+  const compareData = useMemo(() => [
+    { metric: "MAE",  "Random Forest": rf.MAE,  SVR: svr.MAE  },
+    { metric: "RMSE", "Random Forest": rf.RMSE, SVR: svr.RMSE },
+    { metric: "R²",   "Random Forest": rf.R2,   SVR: svr.R2   },
+  ], [rf, svr]);
+  const featData = useMemo(() => [...featureImp].reverse(), [featureImp]);
+
   if (loading)
     return <div className="text-gray-400 py-20 text-center">Loading model results…</div>;
 
@@ -163,19 +177,6 @@ export default function ModelReportPage() {
         </button>
       </div>
     );
-
-  const rf   = results.find(r => r.model === "Random Forest") || {};
-  const svr  = results.find(r => r.model === "SVR") || {};
-  const best = (rf.R2 ?? 0) >= (svr.R2 ?? 0) ? "Random Forest" : "SVR";
-
-  const rfScatter  = useMemo(() => preds.map(p => ({ actual: p.y_true, predicted: p.rf_pred })),  [preds]);
-  const svrScatter = useMemo(() => preds.map(p => ({ actual: p.y_true, predicted: p.svr_pred })), [preds]);
-  const compareData = useMemo(() => [
-    { metric: "MAE",  "Random Forest": rf.MAE,  SVR: svr.MAE },
-    { metric: "RMSE", "Random Forest": rf.RMSE, SVR: svr.RMSE },
-    { metric: "R²",   "Random Forest": rf.R2,   SVR: svr.R2  },
-  ], [rf, svr]);
-  const featData = useMemo(() => [...featureImp].reverse(), [featureImp]);
 
   return (
     <div className="space-y-6">
