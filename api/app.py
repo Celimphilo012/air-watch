@@ -31,6 +31,7 @@ from api.routes.users   import users_bp
 from api.routes.zones   import zones_bp
 from api.routes.audit   import audit_bp, log_action
 from api.routes.config  import config_bp
+from api.routes.history import history_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(data_bp)
@@ -39,6 +40,7 @@ app.register_blueprint(users_bp)
 app.register_blueprint(zones_bp)
 app.register_blueprint(audit_bp)
 app.register_blueprint(config_bp)
+app.register_blueprint(history_bp)
 
 @app.route("/api/health")
 def health():
@@ -181,7 +183,66 @@ def train():
         y_train.to_csv(os.path.join(PROCESSED_DIR, "y_train.csv"), index=False)
         y_test.to_csv( os.path.join(PROCESSED_DIR, "y_test.csv"),  index=False)
 
-        log_action("MODEL_TRAIN", f"best={best_name} rf_r2={rf_res['R2']} svr_r2={svr_res['R2']}")
+        # ── snapshot versioned copy ───────────────────────────────────────────
+        import shutil, datetime
+        from api.db import get_connection as _get_conn
+
+        run_id    = datetime.datetime.now().strftime("run_%Y%m%d_%H%M%S")
+        run_dir   = os.path.join(MODELS_DIR, "history", run_id)
+        os.makedirs(run_dir, exist_ok=True)
+
+        SNAPSHOT_FILES = [
+            "best_model.pkl", "best_model_name.pkl", "random_forest.pkl", "svr.pkl",
+            "imputer.pkl", "scaler.pkl", "feature_cols.pkl",
+            "model_results.csv", "test_predictions.csv", "train_metrics.csv",
+            "feature_importances.csv",
+        ]
+        for fname in SNAPSHOT_FILES:
+            src = os.path.join(MODELS_DIR, fname)
+            if os.path.exists(src):
+                shutil.copy2(src, os.path.join(run_dir, fname))
+
+        try:
+            _conn = _get_conn()
+            with _conn.cursor() as _cur:
+                _cur.execute("UPDATE training_history SET is_active = 0")
+                _cur.execute("""
+                    INSERT INTO training_history
+                      (run_id, trained_at, trained_by, best_model,
+                       dataset_rows, train_samples, test_samples,
+                       n_estimators, max_depth, min_samples,
+                       svr_c, svr_epsilon, svr_kernel,
+                       rf_mae, rf_rmse, rf_r2,
+                       rf_train_mae, rf_train_rmse, rf_train_r2,
+                       svr_mae, svr_rmse, svr_r2,
+                       svr_train_mae, svr_train_rmse, svr_train_r2,
+                       model_dir, is_active)
+                    VALUES (%s, NOW(), %s, %s,
+                            %s, %s, %s,
+                            %s, %s, %s,
+                            %s, %s, %s,
+                            %s, %s, %s,
+                            %s, %s, %s,
+                            %s, %s, %s,
+                            %s, %s, %s,
+                            %s, 1)
+                """, (
+                    run_id, session.get("username"), best_name,
+                    int(len(df)), int(len(X_train)), int(len(X_test)),
+                    n_estimators, max_depth, min_samples,
+                    C, epsilon, kernel,
+                    rf_res["MAE"],  rf_res["RMSE"],  rf_res["R2"],
+                    rf_train_res["MAE"],  rf_train_res["RMSE"],  rf_train_res["R2"],
+                    svr_res["MAE"], svr_res["RMSE"], svr_res["R2"],
+                    svr_train_res["MAE"], svr_train_res["RMSE"], svr_train_res["R2"],
+                    run_dir,
+                ))
+                _conn.commit()
+            _conn.close()
+        except Exception:
+            pass  # history insert failure must not break the training response
+
+        log_action("MODEL_TRAIN", f"run_id={run_id} best={best_name} rf_r2={rf_res['R2']} svr_r2={svr_res['R2']}")
         return jsonify({
             "best_model":      best_name,
             "train_samples":   int(len(X_train)),

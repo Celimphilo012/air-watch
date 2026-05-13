@@ -11,6 +11,7 @@ import PredictPage from "./pages/PredictPage";
 import ReportPage from "./pages/ReportPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import ModelReportPage from "./pages/ModelReportPage";
+import TrainingHistoryPage from "./pages/TrainingHistoryPage";
 import AdminPage from "./pages/AdminPage";
 import ZonesPage from "./pages/ZonesPage";
 import AuditPage from "./pages/AuditPage";
@@ -84,6 +85,7 @@ function AppRoutes() {
           }
         />
         <Route path="model-report" element={<ModelReportPage />} />
+        <Route path="training-history" element={<TrainingHistoryPage />} />
         <Route
           path="admin"
           element={

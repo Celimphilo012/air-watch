@@ -12,6 +12,7 @@ import {
   FileText,
   Bell,
   Bot,
+  History,
   Users,
   MapPin,
   LogOut,
@@ -47,8 +48,9 @@ const ALL_NAV = [
   { to: "/predict",      icon: Zap,                label: "Predict Air Quality", pageKey: "predict" },
   { to: "/report",       icon: FileText,           label: "Generate Report",     pageKey: "report" },
   { to: "/notifications",icon: Bell,               label: "Notifications",       pageKey: "notifications" },
-  { to: "/model-report", icon: Bot,                label: "Model Report",        pageKey: "model-report" },
-  { to: "/admin",        icon: Users,              label: "Manage Users",        adminOnly: true },
+  { to: "/model-report",      icon: Bot,                label: "Model Report",        pageKey: "model-report" },
+  { to: "/training-history",  icon: History,            label: "Training History",    pageKey: "training-history" },
+  { to: "/admin",             icon: Users,              label: "Manage Users",        adminOnly: true },
   { to: "/zones",        icon: MapPin,             label: "Manage Zones",        adminOnly: true },
   { to: "/audit",        icon: Shield,             label: "Audit Log",           adminOnly: true },
   { to: "/config",       icon: SlidersHorizontal,  label: "System Config",       adminOnly: true },
@@ -72,8 +74,8 @@ export default function Layout() {
     if (!visibility) {
       // fallback while loading: use hardcoded defaults
       const defaults = {
-        environmental_officer: ["overview","historical","upload","train","predict","report","notifications","model-report"],
-        researcher: ["overview","historical","predict","report","model-report"],
+        environmental_officer: ["overview","historical","upload","train","predict","report","notifications","model-report","training-history"],
+        researcher: ["overview","historical","predict","report","model-report","training-history"],
       };
       return (defaults[user?.role] || []).includes(n.pageKey);
     }
