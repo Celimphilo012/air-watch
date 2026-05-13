@@ -8,6 +8,82 @@ import {
 
 const COLORS = { "Random Forest": "#1565c0", SVR: "#6a1b9a" };
 
+const AQI_CATS = ["Good", "Moderate", "Unhealthy", "Hazardous"];
+
+function whoCat(v) {
+  if (v <= 10) return "Good";
+  if (v <= 25) return "Moderate";
+  if (v <= 50) return "Unhealthy";
+  return "Hazardous";
+}
+
+function buildMatrix(preds, predKey) {
+  const mat = {};
+  AQI_CATS.forEach(a => { mat[a] = {}; AQI_CATS.forEach(p => { mat[a][p] = 0; }); });
+  preds.forEach(d => { mat[whoCat(d.y_true)][whoCat(d[predKey])]++; });
+  return mat;
+}
+
+function ConfusionMatrix({ preds, predKey, label, color }) {
+  if (!preds.length) return null;
+  const mat    = buildMatrix(preds, predKey);
+  const maxVal = Math.max(1, ...AQI_CATS.flatMap(a => AQI_CATS.map(p => mat[a][p])));
+  const total  = preds.length;
+  const correct = AQI_CATS.reduce((s, c) => s + mat[c][c], 0);
+
+  return (
+    <div>
+      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
+        <span className="inline-block w-3 h-3 rounded-full" style={{ background: color }} />
+        {label}
+      </p>
+      <p className="text-xs text-gray-400 mb-3">
+        Category accuracy: <strong>{((correct / total) * 100).toFixed(1)}%</strong> ({correct}/{total} correct AQI class)
+      </p>
+      <div className="overflow-x-auto">
+        <table className="text-xs border-collapse w-full">
+          <thead>
+            <tr>
+              <th className="p-2 text-left text-gray-400 font-normal">Actual ↓ / Predicted →</th>
+              {AQI_CATS.map(c => (
+                <th key={c} className="p-2 text-center font-medium text-gray-600 dark:text-gray-300">{c}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {AQI_CATS.map(actual => (
+              <tr key={actual}>
+                <td className="p-2 font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap">{actual}</td>
+                {AQI_CATS.map(predicted => {
+                  const count   = mat[actual][predicted];
+                  const opacity = count / maxVal;
+                  const isDiag  = actual === predicted;
+                  return (
+                    <td
+                      key={predicted}
+                      className="p-2 text-center rounded font-mono"
+                      style={{
+                        backgroundColor: isDiag
+                          ? `rgba(21,101,192,${0.08 + opacity * 0.75})`
+                          : count > 0 ? `rgba(239,68,68,${0.05 + opacity * 0.55})` : "transparent",
+                        color: opacity > 0.55 ? "#fff" : undefined,
+                        minWidth: "56px",
+                      }}
+                    >
+                      {count}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-gray-400 mt-2">Blue diagonal = correct category · Red off-diagonal = misclassified</p>
+    </div>
+  );
+}
+
 // Custom dot that renders nothing — used for the perfect-prediction reference line
 const NullDot = () => null;
 
@@ -129,11 +205,12 @@ function ResidualsChart({ data, color, label }) {
 }
 
 export default function ModelReportPage() {
-  const [results, setResults]   = useState(null);
-  const [preds, setPreds]       = useState([]);
-  const [featureImp, setFeatImp] = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState("");
+  const [results, setResults]       = useState(null);
+  const [preds, setPreds]           = useState([]);
+  const [featureImp, setFeatImp]    = useState([]);
+  const [trainMetrics, setTrainMet] = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState("");
 
   const fetchResults = () => {
     setLoading(true);
@@ -143,6 +220,7 @@ export default function ModelReportPage() {
         setResults(r.data.results);
         setPreds(r.data.predictions || []);
         setFeatImp(r.data.feature_importances || []);
+        setTrainMet(r.data.train_metrics || []);
       })
       .catch(err => setError(err.response?.data?.error || err.message || "Failed to load results."))
       .finally(() => setLoading(false));
@@ -163,6 +241,9 @@ export default function ModelReportPage() {
     { metric: "R²",   "Random Forest": rf.R2,   SVR: svr.R2   },
   ], [rf, svr]);
   const featData = useMemo(() => [...featureImp].reverse(), [featureImp]);
+
+  const rfTrain  = useMemo(() => trainMetrics.find(r => r.model === "Random Forest") || {}, [trainMetrics]);
+  const svrTrain = useMemo(() => trainMetrics.find(r => r.model === "SVR") || {},            [trainMetrics]);
 
   if (loading)
     return <div className="text-gray-400 py-20 text-center">Loading model results…</div>;
@@ -254,6 +335,85 @@ export default function ModelReportPage() {
             <ResidualsChart data={rfScatter}  color={COLORS["Random Forest"]} label="Random Forest" />
             <ResidualsChart data={svrScatter} color={COLORS["SVR"]}           label="SVR" />
           </div>
+        </div>
+      )}
+
+      {/* ── Confusion Matrix (AQI category classification) ── */}
+      {preds.length > 0 && (
+        <div className="chart-enter bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5"
+             style={{ animationDelay: "360ms" }}>
+          <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-1">
+            Confusion Matrix — AQI Category Classification
+          </h2>
+          <p className="text-xs text-gray-400 mb-5">
+            PM2.5 values classified into WHO categories: Good (≤10), Moderate (≤25), Unhealthy (≤50), Hazardous (&gt;50 µg/m³).
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <ConfusionMatrix preds={preds} predKey="rf_pred"  label="Random Forest" color={COLORS["Random Forest"]} />
+            <ConfusionMatrix preds={preds} predKey="svr_pred" label="SVR"           color={COLORS["SVR"]}           />
+          </div>
+        </div>
+      )}
+
+      {/* ── Train vs Test Metrics ── */}
+      {trainMetrics.length > 0 && (
+        <div className="chart-enter bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5"
+             style={{ animationDelay: "380ms" }}>
+          <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-1">Train vs Test Metrics</h2>
+          <p className="text-xs text-gray-400 mb-4">
+            A large gap between training and test R² indicates overfitting — the model memorised training data.
+          </p>
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="pb-2 text-left text-gray-500 font-medium">Model</th>
+                <th className="pb-2 text-center text-gray-500 font-medium">Set</th>
+                <th className="pb-2 text-center text-gray-500 font-medium">MAE</th>
+                <th className="pb-2 text-center text-gray-500 font-medium">RMSE</th>
+                <th className="pb-2 text-center text-gray-500 font-medium">R²</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {[
+                { name: "Random Forest", set: "Train", d: rfTrain,  color: COLORS["Random Forest"] },
+                { name: "Random Forest", set: "Test",  d: rf,       color: COLORS["Random Forest"] },
+                { name: "SVR",           set: "Train", d: svrTrain, color: COLORS["SVR"] },
+                { name: "SVR",           set: "Test",  d: svr,      color: COLORS["SVR"] },
+              ].map((row, i) => {
+                const isTest   = row.set === "Test";
+                const trainR2  = row.name === "Random Forest" ? rfTrain.R2 : svrTrain.R2;
+                const testR2   = row.name === "Random Forest" ? rf.R2      : svr.R2;
+                const overfit  = !isTest && trainR2 != null && testR2 != null && (trainR2 - testR2) > 0.15;
+                return (
+                  <tr key={i} className={isTest ? "bg-gray-50 dark:bg-gray-800/40" : ""}>
+                    <td className="py-2 pr-4">
+                      {i % 2 === 0 && (
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full" style={{ background: row.color }} />
+                          <strong className="text-gray-800 dark:text-gray-200">{row.name}</strong>
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 text-center">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        isTest
+                          ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                          : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                      }`}>{row.set}</span>
+                    </td>
+                    <td className="py-2 text-center text-gray-700 dark:text-gray-300">{row.d.MAE ?? "—"}</td>
+                    <td className="py-2 text-center text-gray-700 dark:text-gray-300">{row.d.RMSE ?? "—"}</td>
+                    <td className="py-2 text-center">
+                      <span className={overfit ? "text-orange-600 font-semibold" : "text-gray-700 dark:text-gray-300"}>
+                        {row.d.R2 ?? "—"}
+                      </span>
+                      {overfit && <span className="ml-1 text-xs text-orange-500">⚠ overfit</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 

@@ -178,25 +178,79 @@ export default function TrainPage() {
       )}
 
       {results && (
-        <div
-          className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800
-                        rounded-xl p-5 space-y-3"
-        >
-          <p className="font-semibold text-green-800 dark:text-green-200">
-            ✅ Training complete
-          </p>
-          <p className="text-sm text-green-700 dark:text-green-300">
-            Best model: <strong>{results.best_model}</strong> — R² ={" "}
-            {results.rf_r2 > results.svr_r2 ? results.rf_r2 : results.svr_r2}
-          </p>
-          <div className="grid grid-cols-2 gap-4 text-sm text-green-700 dark:text-green-300">
-            <div>
-              <strong>Random Forest:</strong> MAE={results.rf_mae}, R²=
-              {results.rf_r2}
-            </div>
-            <div>
-              <strong>SVR:</strong> MAE={results.svr_mae}, R²={results.svr_r2}
-            </div>
+        <div className="space-y-4">
+          <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-xl p-4">
+            <p className="font-semibold text-green-800 dark:text-green-200">
+              ✅ Training complete — best model: <strong>{results.best_model}</strong>
+            </p>
+            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+              {results.train_samples?.toLocaleString()} training samples · {results.test_samples?.toLocaleString()} test samples (80/20 split)
+            </p>
+          </div>
+
+          {/* Train vs Test comparison table */}
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+            <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">
+              Train vs Test Metrics
+            </h2>
+            <p className="text-xs text-gray-400 mb-4">
+              If Train R² is much higher than Test R², the model may be overfitting.
+            </p>
+            <table className="w-full text-sm text-left border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="pb-2 text-gray-500 font-medium">Model</th>
+                  <th className="pb-2 text-center text-gray-500 font-medium">Set</th>
+                  <th className="pb-2 text-center text-gray-500 font-medium">MAE (µg/m³)</th>
+                  <th className="pb-2 text-center text-gray-500 font-medium">RMSE (µg/m³)</th>
+                  <th className="pb-2 text-center text-gray-500 font-medium">R²</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {[
+                  { name: "Random Forest", set: "Train", mae: results.rf_train_mae, rmse: results.rf_train_rmse, r2: results.rf_train_r2, color: "#1565c0" },
+                  { name: "Random Forest", set: "Test",  mae: results.rf_mae,       rmse: results.rf_rmse,       r2: results.rf_r2,       color: "#1565c0" },
+                  { name: "SVR",           set: "Train", mae: results.svr_train_mae, rmse: results.svr_train_rmse, r2: results.svr_train_r2, color: "#6a1b9a" },
+                  { name: "SVR",           set: "Test",  mae: results.svr_mae,        rmse: results.svr_rmse,       r2: results.svr_r2,       color: "#6a1b9a" },
+                ].map((row, i) => {
+                  const isTest = row.set === "Test";
+                  const overfit = isTest
+                    ? null
+                    : (() => {
+                        const trainR2 = row.r2;
+                        const testR2  = row.name === "Random Forest" ? results.rf_r2 : results.svr_r2;
+                        return trainR2 - testR2 > 0.15;
+                      })();
+                  return (
+                    <tr key={i} className={isTest ? "bg-gray-50 dark:bg-gray-800/40" : ""}>
+                      <td className="py-2 pr-4">
+                        {i === 0 || i === 2 ? (
+                          <span className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full inline-block" style={{ background: row.color }} />
+                            <strong className="text-gray-800 dark:text-gray-200">{row.name}</strong>
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="py-2 text-center">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          isTest
+                            ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                        }`}>{row.set}</span>
+                      </td>
+                      <td className="py-2 text-center text-gray-700 dark:text-gray-300">{row.mae ?? "—"}</td>
+                      <td className="py-2 text-center text-gray-700 dark:text-gray-300">{row.rmse ?? "—"}</td>
+                      <td className="py-2 text-center">
+                        <span className={overfit ? "text-orange-600 font-semibold" : "text-gray-700 dark:text-gray-300"}>
+                          {row.r2 ?? "—"}
+                        </span>
+                        {overfit && <span className="ml-1 text-xs text-orange-500">⚠ overfit?</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

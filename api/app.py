@@ -146,6 +146,10 @@ def train():
         svr_preds = svr.predict(X_te_sc)
         svr_res   = {"model": "SVR", **metrics(y_test, svr_preds)}
 
+        # ── Training-set metrics (to detect overfitting) ───────────────────────
+        rf_train_res  = {"model": "Random Forest", **metrics(y_train, rf.predict(X_tr_sc))}
+        svr_train_res = {"model": "SVR",           **metrics(y_train, svr.predict(X_tr_sc))}
+
         results_df = pd.DataFrame([rf_res, svr_res])
         best_name  = results_df.loc[results_df["R2"].idxmax(), "model"]
         best_model = rf if best_name == "Random Forest" else svr
@@ -162,6 +166,8 @@ def train():
         pd.DataFrame({"y_true": y_test.values,
                       "rf_pred": rf_preds, "svr_pred": svr_preds}) \
           .to_csv(os.path.join(MODELS_DIR, "test_predictions.csv"), index=False)
+        pd.DataFrame([rf_train_res, svr_train_res]) \
+          .to_csv(os.path.join(MODELS_DIR, "train_metrics.csv"), index=False)
         pd.Series(rf.feature_importances_, index=feature_cols) \
           .sort_values(ascending=False) \
           .reset_index() \
@@ -177,9 +183,15 @@ def train():
 
         log_action("MODEL_TRAIN", f"best={best_name} rf_r2={rf_res['R2']} svr_r2={svr_res['R2']}")
         return jsonify({
-            "best_model": best_name,
-            "rf_mae": rf_res["MAE"],   "rf_r2": rf_res["R2"],
-            "svr_mae": svr_res["MAE"], "svr_r2": svr_res["R2"],
+            "best_model":      best_name,
+            "train_samples":   int(len(X_train)),
+            "test_samples":    int(len(X_test)),
+            # test metrics
+            "rf_mae":  rf_res["MAE"],  "rf_rmse":  rf_res["RMSE"],  "rf_r2":  rf_res["R2"],
+            "svr_mae": svr_res["MAE"], "svr_rmse": svr_res["RMSE"], "svr_r2": svr_res["R2"],
+            # train metrics
+            "rf_train_mae":  rf_train_res["MAE"],  "rf_train_rmse":  rf_train_res["RMSE"],  "rf_train_r2":  rf_train_res["R2"],
+            "svr_train_mae": svr_train_res["MAE"], "svr_train_rmse": svr_train_res["RMSE"], "svr_train_r2": svr_train_res["R2"],
         })
 
     except Exception as e:
