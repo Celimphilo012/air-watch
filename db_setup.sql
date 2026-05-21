@@ -81,6 +81,54 @@ CREATE TABLE IF NOT EXISTS system_config (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- Training history (one row per training run)
+CREATE TABLE IF NOT EXISTS training_history (
+  id               INT AUTO_INCREMENT PRIMARY KEY,
+  run_id           VARCHAR(30)  NOT NULL UNIQUE,
+  trained_at       DATETIME     NOT NULL,
+  trained_by       VARCHAR(80),
+  best_model       VARCHAR(80),
+
+  -- dataset split
+  dataset_rows     INT,
+  train_samples    INT,
+  test_samples     INT,
+
+  -- Random Forest hyperparameters
+  n_estimators     INT,
+  max_depth        INT,
+  min_samples      INT,
+
+  -- SVR hyperparameters
+  svr_c            FLOAT,
+  svr_epsilon      FLOAT,
+  svr_kernel       VARCHAR(20),
+
+  -- Random Forest test metrics
+  rf_mae           FLOAT,
+  rf_rmse          FLOAT,
+  rf_r2            FLOAT,
+
+  -- Random Forest train metrics
+  rf_train_mae     FLOAT,
+  rf_train_rmse    FLOAT,
+  rf_train_r2      FLOAT,
+
+  -- SVR test metrics
+  svr_mae          FLOAT,
+  svr_rmse         FLOAT,
+  svr_r2           FLOAT,
+
+  -- SVR train metrics
+  svr_train_mae    FLOAT,
+  svr_train_rmse   FLOAT,
+  svr_train_r2     FLOAT,
+
+  -- filesystem snapshot path and active flag
+  model_dir        VARCHAR(255),
+  is_active        TINYINT(1)   NOT NULL DEFAULT 0
+);
+
 -- Default page visibility per role (JSON)
 INSERT IGNORE INTO system_config (`key`, value) VALUES
 (
