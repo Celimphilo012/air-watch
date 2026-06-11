@@ -265,22 +265,23 @@ def notify():
     if "username" not in session:
         return jsonify({"error": "Not authenticated"}), 401
 
-    data       = request.get_json()
-    sender     = data.get("senderEmail","")
-    password   = data.get("appPassword","")
-    recipients = data.get("recipients",[])
-    subject    = data.get("subject","Air Quality Alert")
-    forecasts  = data.get("forecasts",[])
-    zone       = data.get("zone","")
+    try:
+        data       = request.get_json(force=True, silent=True) or {}
+        sender     = data.get("senderEmail","")
+        password   = data.get("appPassword","")
+        recipients = data.get("recipients",[])
+        subject    = data.get("subject","Air Quality Alert")
+        forecasts  = data.get("forecasts",[])
+        zone       = data.get("zone","")
 
-    if not sender or not password or not recipients:
-        return jsonify({"error": "Email, password and recipients required"}), 400
+        if not sender or not password or not recipients:
+            return jsonify({"error": "Email, password and recipients required"}), 400
 
-    rows = "".join([
-        f"<tr><td>{f['date']}</td><td>{f['day']}</td><td>{f['pm25']} µg/m³</td><td>{f['category']}</td></tr>"
-        for f in forecasts
-    ])
-    body = f"""<html><body>
+        rows = "".join([
+            f"<tr><td>{f['date']}</td><td>{f['day']}</td><td>{f['pm25']} µg/m³</td><td>{f['category']}</td></tr>"
+            for f in forecasts
+        ])
+        body = f"""<html><body>
 <h2>🌿 AirWatch Eswatini — Air Quality Alert</h2>
 <p><strong>Zone:</strong> {zone}</p>
 <table border="1" cellpadding="6" style="border-collapse:collapse">
@@ -290,21 +291,25 @@ def notify():
 <p>WHO PM2.5 safe limit: <strong>10 µg/m³</strong></p>
 </body></html>"""
 
-    try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
         msg["From"]    = sender
         msg["To"]      = ", ".join(recipients)
         msg.attach(MIMEText(body, "html"))
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as s:
             s.login(sender, password)
             s.sendmail(sender, recipients, msg.as_string())
         log_action("NOTIFY_SENT", f"zone={zone} recipients={len(recipients)}")
         return jsonify({"message": f"Sent to {len(recipients)} recipient(s)."})
     except smtplib.SMTPAuthenticationError:
         return jsonify({"error": "Gmail authentication failed. Check your App Password."}), 401
+    except smtplib.SMTPException as e:
+        return jsonify({"error": f"SMTP error: {e}"}), 500
+    except OSError as e:
+        return jsonify({"error": f"Network error — cannot reach smtp.gmail.com: {e}"}), 500
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        import traceback
+        return jsonify({"error": str(e), "detail": traceback.format_exc()}), 500
 
 
 if __name__ == "__main__":
